@@ -1,0 +1,7 @@
+streamlit
+pandas
+requests
+plotly
+supabase
+streamlit-option-menu
+xlsxwriter
