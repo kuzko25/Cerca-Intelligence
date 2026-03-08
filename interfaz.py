@@ -118,13 +118,13 @@ def procesar_con_motor_fastapi(archivo, params):
     files = {"file": archivo}
     try:
         # Los parámetros se pasan como query strings o data dependiendo de tu FastAPI
-        r = requests.post("https://cerca-motor.onrender.comprocesar", files=files, params=params, timeout=60)
+        r = requests.post("https://cerca-motor.onrender.com/procesar", files=files, params=params, timeout=60)
         return r.json()
     except: return None
 
 def consultar_individual_api(cuil):
     try:
-        r = requests.get(f"https://cerca-motor.onrender.comconsulta/{cuil}", timeout=20)
+        r = requests.get(f"https://cerca-motor.onrender.com/consulta/{cuil}", timeout=20)
         return r.json() if r.status_code == 200 else None
     except: return None
 
