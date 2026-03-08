@@ -147,5 +147,11 @@ async def procesar_archivo(
 
 if __name__ == "__main__":
     import uvicorn
-    # Importante: host 0.0.0.0 si vas a acceder desde otra red, sino 127.0.0.1
-    uvicorn.run(app, host="0.0.0.0", port= port)
+    import os
+    
+    # 1. Primero definimos qué es 'port'
+    # Intentamos leer el puerto que nos da Render, si no hay ninguno, usamos el 8000
+    port = int(os.environ.get("PORT", 8000))
+    
+    # 2. Ahora que 'port' existe, ya lo podemos usar aquí
+    uvicorn.run(app, host="0.0.0.0", port=port)
