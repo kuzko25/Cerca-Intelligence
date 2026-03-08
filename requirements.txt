@@ -5,3 +5,6 @@ plotly
 supabase
 streamlit-option-menu
 xlsxwriter
+fastapi
+uvicorn
+python-multipart
