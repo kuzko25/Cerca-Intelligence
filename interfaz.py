@@ -126,7 +126,7 @@ def procesar_con_motor_fastapi(archivo, params):
 
 def consultar_individual_api(cuil):
     try:
-        r = requests.get(f"https://cerca-motor.onrender.com/consulta/{cuil}", timeout=20)
+        r = requests.get(f"https://cerca-motor.onrender.com/consulta/{cuil}", timeout=120)
         return r.json() if r.status_code == 200 else None
     except: return None
 
