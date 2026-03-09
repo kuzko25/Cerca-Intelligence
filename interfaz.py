@@ -115,12 +115,14 @@ def actualizar_consultas(nuevo_saldo, user_id):
     supabase.table("control_licencias").update({"consultas": nuevo_saldo}).eq("user_id", user_id).execute()
 
 def procesar_con_motor_fastapi(archivo, params):
-    files = {"file": archivo}
+    # IMPORTANTE: Usamos .getvalue() para obtener el contenido real del archivo
+    files = {"file": (archivo.name, archivo.getvalue(), archivo.type)}
     try:
-        # Los parámetros se pasan como query strings o data dependiendo de tu FastAPI
         r = requests.post("https://cerca-motor.onrender.com/procesar", files=files, params=params, timeout=60)
         return r.json()
-    except: return None
+    except Exception as e:
+        print(f"Error detallado: {e}") # Esto te ayuda a ver qué pasa en la consola
+        return None
 
 def consultar_individual_api(cuil):
     try:
@@ -510,7 +512,7 @@ else:
                                 st.plotly_chart(fig, use_container_width=True)
 
                             # 5. TABLA NOSIS
-                            st.markdown("### 📊 HISTORIAL DE COMPORTAMIENTO (NOSIS STYLE)")
+                            st.markdown("### 📊 HISTORIAL DE COMPORTAMIENTO")
                             df_nosis = pd.DataFrame.from_dict(historial_completo, orient='index', columns=meses_labels)
                             st.dataframe(df_nosis.style.map(color_situacion), use_container_width=True)
                             
