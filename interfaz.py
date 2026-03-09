@@ -118,7 +118,7 @@ def procesar_con_motor_fastapi(archivo, params):
     # IMPORTANTE: Usamos .getvalue() para obtener el contenido real del archivo
     files = {"file": (archivo.name, archivo.getvalue(), archivo.type)}
     try:
-        r = requests.post("https://cerca-motor.onrender.com/procesar", files=files, params=params, timeout=60)
+        r = requests.post("https://cerca-motor.onrender.com/procesar", files=files, params=params, timeout=120)
         return r.json()
     except Exception as e:
         print(f"Error detallado: {e}") # Esto te ayuda a ver qué pasa en la consola
