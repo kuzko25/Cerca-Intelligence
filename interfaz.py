@@ -257,7 +257,7 @@ else:
 
         # 3. Menú de Navegación
         menu = option_menu(None, ["Inicio", "Cartera Masiva", "Consulta Individual", "Pagos", "Mi Perfil"], 
-            icons=['house', 'cloud-upload', 'person-search', 'credit-card', 'person-circle'], 
+            icons=['house', 'cloud-upload', 'mag', 'credit-card', 'person-circle'], 
             default_index=0, orientation="horizontal")
     else:
         # Este else está alineado con "if user_data:"
@@ -282,7 +282,7 @@ else:
             st.title("CERCA 📊")
             st.success(f"Usuario: {user_data.get('nombre_usuario')}")
             st.markdown("---")
-            st.header("⚙️ Filtros Masivos")
+            st.header("⚙️ CDA")
             
             # Filtro de Historial y Situación (Siempre activos)
             meses_filtro = st.slider("Historial (Meses)", 1, 24, 12)
