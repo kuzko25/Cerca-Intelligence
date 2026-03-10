@@ -257,7 +257,7 @@ else:
 
         # 3. Menú de Navegación
         menu = option_menu(None, ["Inicio", "Cartera Masiva", "Consulta Individual", "Pagos", "Mi Perfil"], 
-            icons=['house', 'cloud-upload', 'mag', 'credit-card', 'person-circle'], 
+            icons=['house', 'cloud-upload', 'search', 'credit-card', 'person-circle'], 
             default_index=0, orientation="horizontal")
     else:
         # Este else está alineado con "if user_data:"
