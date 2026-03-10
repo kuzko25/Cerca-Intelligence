@@ -3,12 +3,17 @@ import requests
 import pandas as pd
 import urllib3
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor # Para procesar en paralelo
 from fastapi import FastAPI, UploadFile, File, Query
 from fastapi.responses import JSONResponse
 from supabase import create_client, Client
 
 # --- CONFIGURACIÓN ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Sesión global de requests para mayor velocidad
+http_session = requests.Session()
+http_session.verify = False 
 
 # Credenciales de Supabase
 S_URL = "https://lyjavndjjsnmvzttoakr.supabase.co"
@@ -20,15 +25,17 @@ API_HIST = "https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/Historicas/"
 
 app = FastAPI(title="CERCA Intelligence Engine")
 
+app = FastAPI(title="CERCA Intelligence Engine")
+
 # --- LÓGICA DE PROCESAMIENTO ---
 
 def consulta_individual_resumen(cuil, params):
-    """ Función interna: Filtra bancos vigentes (actuales) y evalúa historial de situación """
+    """ Función interna optimizada para uso con sesión y concurrencia """
     l_meses, l_bancos, l_sit = params
     try:
-        # 0. Limpieza de CUIL
         cuil_clean = str(cuil).strip().replace("-", "")
-        r = requests.get(API_HIST + cuil_clean, verify=False, timeout=15)
+        # Usamos la sesión global http_session
+        r = http_session.get(API_HIST + cuil_clean, timeout=15)
         
         if r.status_code == 200:
             res_json = r.json()
@@ -37,72 +44,44 @@ def consulta_individual_resumen(cuil, params):
             
             data = res_json["results"]
             periodos = data.get("periodos", [])
-            
-            # Variables de control
-            d_tot = 0
-            b_cant = 0
-            peor = 1  
+            d_tot, b_cant, peor = 0, 0, 1
             
             if periodos:
-                # 1. FOTO ACTUAL: Usamos SOLO el periodo[0] para Deuda y Cantidad de Bancos
                 ult_p = periodos[0]
-                bancos_vistos = set() # Usamos un set para nombres de bancos únicos hoy
-
+                bancos_vistos = set()
                 for e in ult_p.get("entidades", []):
                     m_e = float(e.get("monto", 0)) * 1000
                     sit_e = int(e.get("situacion", 1))
                     entidad_nombre = str(e.get("entidad", "")).upper().strip()
-                    
-                    # Sumamos a la deuda total actual
                     d_tot += m_e
-                    
-                    # LOGICA DE CONTEO: Solo bancos vigentes hoy
                     if "MASVENTAS" not in entidad_nombre:
-                        # Si tiene deuda o una situación informada, lo contamos como banco activo
                         if sit_e >= 1 or m_e > 0:
                             bancos_vistos.add(entidad_nombre)
                 
-                # Definimos la cantidad real de bancos actuales
                 b_cant = len(bancos_vistos)
-
-                # 2. HISTORIAL: Buscamos la peor situación en el rango l_meses
-                # (Recorre todos los periodos, pero no afecta b_cant)
                 hoy = datetime.now()
                 for p in periodos:
                     try:
-                        p_anio = int(p["periodo"][:4])
-                        p_mes = int(p["periodo"][4:])
+                        p_anio, p_mes = int(p["periodo"][:4]), int(p["periodo"][4:])
                         f_p = datetime(p_anio, p_mes, 1)
-                        
                         m_atras = (hoy.year - f_p.year) * 12 + (hoy.month - f_p.month)
                         
                         if m_atras <= l_meses:
                             for e in p.get("entidades", []):
                                 sit_hist = int(e.get("situacion", 1))
-                                if sit_hist > peor:
-                                    peor = sit_hist
-                    except: 
-                        continue
+                                if sit_hist > peor: peor = sit_hist
+                    except: continue
             
-            # 3. DICTAMEN FINAL
             mots = []
-            
-            if peor > l_sit: 
-                mots.append(f"Sit {peor}")
-            
-            if l_bancos != -1 and b_cant > l_bancos: 
-                mots.append(f"{b_cant} Bancos")
+            if peor > l_sit: mots.append(f"Sit {peor}")
+            if l_bancos != -1 and b_cant > l_bancos: mots.append(f"{b_cant} Bancos")
             
             return {
-                "CUIL": cuil, 
-                "Nombre": data.get("denominacion","S/D"), 
-                "Deuda": d_tot, 
-                "Dictamen": "APROBADO" if not mots else "RECHAZADO",
+                "CUIL": cuil, "Nombre": data.get("denominacion","S/D"), 
+                "Deuda": d_tot, "Dictamen": "APROBADO" if not mots else "RECHAZADO",
                 "Motivo": " | ".join(mots) if mots else "OK"
             }
-            
         return {"CUIL": cuil, "Nombre": "NO REGISTRA", "Deuda": 0, "Dictamen": "APROBADO", "Motivo": "Sin deuda"}
-        
     except Exception as e:
         return {"CUIL": cuil, "Nombre": "ERROR API", "Deuda": 0, "Dictamen": "ERROR", "Motivo": str(e)}
 # --- ENDPOINTS ---
@@ -134,14 +113,20 @@ async def procesar_archivo(
     bancos: int = 2, 
     sit_max: int = 1
 ):
-    """ Endpoint para la Cartera Masiva """
+    """ Endpoint para Cartera Masiva: Procesa en paralelo para evitar Timeouts """
     content = await file.read()
     lineas = content.decode().splitlines()
     cuils = [l.strip() for l in lineas if l.strip().isdigit()]
     
+    # Liberamos memoria del contenido original
+    del content
+    
     params = (meses, bancos, sit_max)
-    # Ejecuta la lógica del motor para cada CUIL
-    resultados = [consulta_individual_resumen(c, params) for c in cuils]
+
+    # Lanzamos el procesamiento en paralelo (Max 15 trabajadores para no saturar Render)
+    with ThreadPoolExecutor(max_workers=15) as executor:
+        # Generamos las tareas para cada CUIL
+        resultados = list(executor.map(lambda c: consulta_individual_resumen(c, params), cuils))
     
     return {"status": "ok", "data": resultados}
 
